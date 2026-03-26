@@ -1,35 +1,36 @@
-import time
-import traceback
+from telegram import Update, Bot
+from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters, CallbackContext
+from config import config
 from handlers import handle_message, handle_callback
-from utils import bot
+
+bot = Bot(token=config["bot_token"])
+
+def start(update: Update, context: CallbackContext):
+    update.message.reply_text("🤖 Bot ishga tushdi!")
+
+def message_router(update: Update, context: CallbackContext):
+    handle_message(update.to_dict())
+
+def callback_router(update: Update, context: CallbackContext):
+    handle_callback(update.to_dict())
 
 def main():
-    print("🚀 Bot ishga tushdi!")
-    offset = 0
-    while True:
-        try:
-            resp = bot("getUpdates", {"offset": offset, "timeout": 30})
-            if resp.get("ok"):
-                for upd in resp.get("result", []):
-                    msg = upd.get("message")
-                    cb = upd.get("callback_query")
-                    if msg:
-                        chat = msg["chat"]["id"]
-                        txt = msg.get("text", "")
-                        user = msg["from"].get("username", "")
-                        mid = msg["message_id"]
-                        handle_message(chat, txt, user, mid)
-                    elif cb:
-                        chat = cb["message"]["chat"]["id"]
-                        mid = cb["message"]["message_id"]
-                        cid = cb["id"]
-                        d = cb["data"]
-                        handle_callback(cid, chat, mid, d)
-                    offset = upd["update_id"] + 1
-            time.sleep(1)
-        except Exception as e:
-            print(f"Xatolik: {e}\n{traceback.format_exc()}")
-            time.sleep(5)
+    updater = Updater(token=config["bot_token"], use_context=True)
+    dp = updater.dispatcher
+
+    # /start buyrug‘i
+    dp.add_handler(CommandHandler("start", start))
+
+    # Foydalanuvchi xabarlari
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, message_router))
+
+    # Callback querylar
+    dp.add_handler(CallbackQueryHandler(callback_router))
+
+    # Botni ishga tushurish
+    updater.start_polling()
+    print("Bot ishga tushdi...")
+    updater.idle()
 
 if __name__ == "__main__":
     main()
